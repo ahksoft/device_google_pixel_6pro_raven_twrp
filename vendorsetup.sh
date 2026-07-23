@@ -4,7 +4,5 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
-add_lunch_combo omni_raven-user
-add_lunch_combo omni_raven-userdebug
-add_lunch_combo omni_raven-eng
+#
+# Lunch targets are declared in AndroidProducts.mk via COMMON_LUNCH_CHOICES.

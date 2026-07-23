@@ -9,6 +9,6 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/omni_raven.mk
 
 COMMON_LUNCH_CHOICES := \
-    omni_raven-user \
-    omni_raven-userdebug \
-    omni_raven-eng
+    omni_raven-trunk_staging-user \
+    omni_raven-trunk_staging-userdebug \
+    omni_raven-trunk_staging-eng
