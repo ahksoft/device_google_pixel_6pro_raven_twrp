@@ -33,6 +33,7 @@ jobs:
 
     - name: Initialize TWRP Manifest
       run: |
+        cd /tmp
         mkdir twrp
         cd twrp
         repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14 --depth=1
@@ -40,13 +41,13 @@ jobs:
 
     - name: Add Device Tree
       run: |
-        cd twrp
+        cd /tmp/twrp
         mkdir -p device/google/raven
         cp -r $GITHUB_WORKSPACE/* device/google/raven/
 
     - name: Build TWRP
       run: |
-        cd twrp
+        cd /tmp/twrp
         source build/envsetup.sh
         lunch omni_raven-eng
         mka recoveryimage -j$(nproc --all)
@@ -55,5 +56,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: twrp-raven
-        path: twrp/out/target/product/raven/recovery.img
+        path: /tmp/twrp/out/target/product/raven/recovery.img
         retention-days: 30
