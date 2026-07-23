@@ -1,0 +1,59 @@
+name: Build TWRP
+
+on:
+  push:
+    branches:
+      - A17
+      - A14
+  pull_request:
+    branches:
+      - A17
+      - A14
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Prepare Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git-core gnupg flex bison gperf build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z-dev libgl1-mesa-dev libxml2-utils xsltproc unzip python3 python3-pip repo
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+
+    - name: Initialize TWRP Manifest
+      run: |
+        mkdir twrp
+        cd twrp
+        repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14 --depth=1
+        repo sync -j$(nproc --all) --force-sync
+
+    - name: Add Device Tree
+      run: |
+        cd twrp
+        mkdir -p device/google/raven
+        cp -r $GITHUB_WORKSPACE/* device/google/raven/
+
+    - name: Build TWRP
+      run: |
+        cd twrp
+        source build/envsetup.sh
+        lunch omni_raven-eng
+        mka recoveryimage -j$(nproc --all)
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: twrp-raven
+        path: twrp/out/target/product/raven/recovery.img
+        retention-days: 30
