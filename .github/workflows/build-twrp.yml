@@ -61,10 +61,15 @@ jobs:
         echo "Available releases:"
         find build/make -name "*.mk" -type f | xargs grep -l "RELEASE" || true
         ls -la build/make/target/product/ || true
-        # Let's try setting TARGET_RELEASE directly
-        export TARGET_RELEASE=14
-        # Now try lunch with correct format: <product>-<release>-<variant>
-        lunch omni_raven-14-eng
+        # Try releases 14 and 17
+        for release in 14 17; do
+          echo "Trying release: $release"
+          export TARGET_RELEASE=$release
+          if lunch omni_raven-$release-eng; then
+            echo "Successfully set up lunch for release $release"
+            break
+          fi
+        done
         mka recoveryimage -j$(nproc --all)
 
     - name: Upload Build Artifact
