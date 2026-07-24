@@ -36,16 +36,16 @@ jobs:
         cd /tmp
         mkdir twrp
         cd twrp
-        repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni -b twrp-14 --depth=1
+        repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp -b twrp-12.1 --depth=1
         repo sync -j$(nproc --all) --force-sync
 
     - name: Add Device Tree
       run: |
         cd /tmp/twrp
         mkdir -p device/google/raven
-        # Copy all files except .git and log
+        # Copy all files except .git, log, .gitignore
         for file in $GITHUB_WORKSPACE/*; do
-          if [ "$(basename "$file")" != ".git" ] && [ "$(basename "$file")" != "log" ]; then
+          if [ "$(basename "$file")" != ".git" ] && [ "$(basename "$file")" != "log" ] && [ "$(basename "$file")" != ".gitignore" ]; then
             cp -r "$file" device/google/raven/
           fi
         done
@@ -57,9 +57,7 @@ jobs:
         ls -la device/google/
         ls -la device/google/raven/
         source build/envsetup.sh
-        # Use only release 14 for TWRP 14 manifest
-        export TARGET_RELEASE=14
-        lunch omni_raven-14-eng
+        lunch twrp_raven-eng
         mka recoveryimage -j$(nproc --all)
 
     - name: Upload Build Artifact

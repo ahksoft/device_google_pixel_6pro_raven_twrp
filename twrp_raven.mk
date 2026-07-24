@@ -7,16 +7,13 @@
 
 # Inherit from those products. Most specific first.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
-
-# Inherit some common Omni stuff.
-$(call inherit-product, vendor/omni/config/common.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base.mk)
 
 # Inherit from raven device
 $(call inherit-product, device/google/raven/device.mk)
 
 PRODUCT_DEVICE := raven
-PRODUCT_NAME := omni_raven
+PRODUCT_NAME := twrp_raven
 PRODUCT_BRAND := google
 PRODUCT_MODEL := Pixel 6 Pro
 PRODUCT_MANUFACTURER := google

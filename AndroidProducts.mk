@@ -6,18 +6,18 @@
 #
 
 PRODUCT_MAKEFILES := \
-    $(LOCAL_DIR)/omni_raven.mk
+    $(LOCAL_DIR)/twrp_raven.mk
 
 COMMON_LUNCH_CHOICES := \
-    omni_raven-14-user \
-    omni_raven-14-userdebug \
-    omni_raven-14-eng \
-    omni_raven-15-user \
-    omni_raven-15-userdebug \
-    omni_raven-15-eng \
-    omni_raven-16-user \
-    omni_raven-16-userdebug \
-    omni_raven-16-eng \
-    omni_raven-17-user \
-    omni_raven-17-userdebug \
-    omni_raven-17-eng
+    twrp_raven-14-user \
+    twrp_raven-14-userdebug \
+    twrp_raven-14-eng \
+    twrp_raven-15-user \
+    twrp_raven-15-userdebug \
+    twrp_raven-15-eng \
+    twrp_raven-16-user \
+    twrp_raven-16-userdebug \
+    twrp_raven-16-eng \
+    twrp_raven-17-user \
+    twrp_raven-17-userdebug \
+    twrp_raven-17-eng
