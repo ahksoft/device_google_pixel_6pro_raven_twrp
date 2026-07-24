@@ -57,19 +57,9 @@ jobs:
         ls -la device/google/
         ls -la device/google/raven/
         source build/envsetup.sh
-        # Check available lunch combos and releases
-        echo "Available releases:"
-        find build/make -name "*.mk" -type f | xargs grep -l "RELEASE" || true
-        ls -la build/make/target/product/ || true
-        # Try releases 14 and 17
-        for release in 14 17; do
-          echo "Trying release: $release"
-          export TARGET_RELEASE=$release
-          if lunch omni_raven-$release-eng; then
-            echo "Successfully set up lunch for release $release"
-            break
-          fi
-        done
+        # Use only release 14 for TWRP 14 manifest
+        export TARGET_RELEASE=14
+        lunch omni_raven-14-eng
         mka recoveryimage -j$(nproc --all)
 
     - name: Upload Build Artifact
