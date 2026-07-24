@@ -9,6 +9,9 @@
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base.mk)
 
+# Inherit from TWRP common configuration
+$(call inherit-product, vendor/twrp/config/common.mk)
+
 # Inherit from raven device
 $(call inherit-product, device/google/raven/device.mk)
 
