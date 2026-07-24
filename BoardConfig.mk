@@ -51,7 +51,7 @@ TARGET_USES_VULKAN := true
 # Kernel
 BOARD_BOOTIMG_HEADER_VERSION := 4
 BOARD_KERNEL_BASE := 0x10000000
-BOARD_KERNEL_CMDLINE := dyndbg=&#34;func alloc_contig_dump_pages +p&#34; earlycon=exynos4210,0x10A00000 console=ttySAC0,115200 androidboot.console=ttySAC0 printk.devkmsg=on cma_sysfs.experimental=Y swiotlb=noforce at24.write_timeout=100 log_buf_len=1024K bootconfig
+BOARD_KERNEL_CMDLINE := dyndbg=&#34;func alloc_contig_dump_pages +p&#34; earlycon=exynos4210,0x10A00000 console=ttySAC0,115200 androidboot.console=ttySAC0 printk.devkmsg=on cma_sysfs.experimental=Y swiotlb=noforce at24.write_timeout=100 log_buf_len=1024K androidboot.boot_devices=13200000.ufs bootconfig
 BOARD_KERNEL_PAGESIZE := 2048
 BOARD_RAMDISK_OFFSET := 0x01000000
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
@@ -100,7 +100,7 @@ TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_USERIMAGES_USE_F2FS := true
 
 # Security patch level
-VENDOR_SECURITY_PATCH := 2021-08-01
+VENDOR_SECURITY_PATCH := 2099-12-31
 
 # Verified Boot
 BOARD_AVB_ENABLE := true
@@ -108,7 +108,6 @@ BOARD_AVB_MAKE_VBMETA_IMAGE_ARGS += --flags 3
 
 # Hack: prevent anti rollback
 PLATFORM_SECURITY_PATCH := 2099-12-31
-VENDOR_SECURITY_PATCH := 2099-12-31
 PLATFORM_VERSION := 17.0.0
 
 # TWRP Configuration
