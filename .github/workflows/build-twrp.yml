@@ -49,6 +49,12 @@ jobs:
       run: |
         cd /tmp/twrp
         source build/envsetup.sh
+        # add_lunch_combo is obsolete in twrp-14. Manually register the combo
+        # because the build system does not always pick up COMMON_LUNCH_CHOICES
+        # from AndroidProducts.mk automatically.
+        LUNCH_MENU_CHOICES+=("omni_raven-eng")
+        LUNCH_MENU_CHOICES+=("omni_raven-user")
+        LUNCH_MENU_CHOICES+=("omni_raven-userdebug")
         lunch omni_raven-eng
         mka recoveryimage -j$(nproc --all)
 
