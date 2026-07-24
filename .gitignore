@@ -1,3 +1,9 @@
 log
 out
 twrp
+magisk-tools
+prebuilt-partition
+unpack_bootimg.py
+check_bootimg.py
+extract_kernel.py
+extract_vendor_boot.py
