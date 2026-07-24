@@ -43,19 +43,25 @@ jobs:
       run: |
         cd /tmp/twrp
         mkdir -p device/google/raven
-        cp -r $GITHUB_WORKSPACE/* device/google/raven/
+        # Copy all files except .git and log
+        for file in $GITHUB_WORKSPACE/*; do
+          if [ "$(basename "$file")" != ".git" ] && [ "$(basename "$file")" != "log" ]; then
+            cp -r "$file" device/google/raven/
+          fi
+        done
+        ls -la device/google/raven/
 
     - name: Build TWRP
       run: |
         cd /tmp/twrp
+        ls -la device/google/
+        ls -la device/google/raven/
         source build/envsetup.sh
-        # add_lunch_combo is obsolete in twrp-14. Manually register the combo
-        # because the build system does not always pick up COMMON_LUNCH_CHOICES
-        # from AndroidProducts.mk automatically.
-        LUNCH_MENU_CHOICES+=("omni_raven-eng")
-        LUNCH_MENU_CHOICES+=("omni_raven-user")
-        LUNCH_MENU_CHOICES+=("omni_raven-userdebug")
-        lunch omni_raven-eng
+        # First let's list available products
+        lunch omni_raven-eng || true
+        # Try using the build command directly
+        . build/envsetup.sh
+        choosecombo 1 omni_raven eng
         mka recoveryimage -j$(nproc --all)
 
     - name: Upload Build Artifact
