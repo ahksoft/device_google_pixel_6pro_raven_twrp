@@ -4,7 +4,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
-add_lunch_combo omni_raven-user
-add_lunch_combo omni_raven-userdebug
-add_lunch_combo omni_raven-eng
+# Lunch combos are registered via COMMON_LUNCH_CHOICES in AndroidProducts.mk
+# Fallback: directly register in LUNCH_MENU_CHOICES in case the build system
+# doesn't auto-scan AndroidProducts.mk
+LUNCH_MENU_CHOICES+=("omni_raven-eng")
+LUNCH_MENU_CHOICES+=("omni_raven-user")
+LUNCH_MENU_CHOICES+=("omni_raven-userdebug")
