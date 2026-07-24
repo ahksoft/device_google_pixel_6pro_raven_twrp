@@ -15,5 +15,16 @@ service recovery-console /system/bin/sh
     seclabel u:r:su:s0
     setenv HOSTNAME console
 
+service keymint /vendor/bin/hw/android.hardware.security.keymint-service
+    class hal
+    user root
+    group root
+    socket keymint stream 0666 root root
+
+service gatekeeper /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+    class hal
+    user root
+    group root
+
 on fs && property:sys.usb.configfs=1
     write /config/usb_gadget/g1/configs/b.1/MaxPower 900
