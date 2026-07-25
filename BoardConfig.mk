@@ -19,8 +19,14 @@ AB_OTA_PARTITIONS += \
     vendor \
     vendor_dlkm \
     boot \
+    vendor_boot \
     vbmeta
-BOARD_USES_RECOVERY_AS_BOOT := true
+
+# Vendor Boot (Pixel 6 Pro/raven/gs101/GKI: TWRP recovery ramdisk lives in vendor_boot)
+BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE := 67108864
+BOARD_VENDOR_RAMDISK_RECOVERY_KERNEL_MODULES_LOAD :=
+BOARD_VENDOR_RAMDISK_INCLUDE_VENDOR_RAMDISK_FRAGMENTS :=
+BOARD_INCLUDE_RECOVERY_RAMDISK_IN_VENDOR_BOOT := true
 
 # Architecture
 TARGET_ARCH := arm64
