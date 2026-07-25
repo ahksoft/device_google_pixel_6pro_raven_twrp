@@ -5,16 +5,23 @@ on:
     branches:
       - A17
       - A14
+      - twrp-fix-vendor-boot
   pull_request:
     branches:
       - A17
       - A14
   workflow_dispatch:
 
+env:
+  # Tune for lower memory usage during TWRP soong bootstrap
+  MALLOC_SPARSE_MAX_COMMIT: "1"
+  SOONG_GOMA_DISABLE: "true"
+  # Cap parallelism (4-core runner, 16GB RAM -> -j2 prevents OOM)
+  MAX_JOBS: "2"
+
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
     permissions:
       contents: write
 
@@ -22,24 +29,47 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Free disk space
+    - name: Free disk space (remove unused pre-installed SDKs/tools)
       run: |
+        # Save ~25-35GB of disk space for swap + build output + repo sync
+        echo "=== Before ==="
+        df -h /
+        echo "Freeing pre-installed runtimes/tools..."
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /usr/local/lib/android
         sudo rm -rf /opt/ghc
         sudo rm -rf /opt/hostedtoolcache
-        docker image prune -af
-        df -h
+        sudo rm -rf /opt/microsoft
+        sudo rm -rf /opt/google
+        sudo rm -rf /usr/lib/heroku
+        sudo rm -rf /usr/local/.ghcup
+        sudo rm -rf /usr/local/share/chromium
+        docker image prune -af 2>/dev/null || true
+        sudo apt-get clean 2>/dev/null || true
+        echo "=== After ==="
+        df -h /
 
-    - name: Add swap space
+    - name: Create 24GB swap file + tune VM (prevent OOM during soong bootstrap)
       run: |
+        # ubuntu-22.04 runner: 4 cores, 16 GB RAM. soong bootstrap may consume 20-30GB.
+        # Add 24GB swap for overflow. Keep runner processes in RAM to avoid losing heartbeat.
+        echo "=== Memory before ==="
+        free -h
         sudo swapoff /swapfile 2>/dev/null || true
         sudo rm -f /swapfile
-        sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
+        echo "Creating 24GB swapfile..."
+        sudo fallocate -l 24G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=24576 status=none
         sudo chmod 600 /swapfile
         sudo mkswap /swapfile
         sudo swapon /swapfile
+        # Keep runner process pages in RAM, swap less active pages only when necessary
+        sudo sysctl -w vm.swappiness=10
+        # Minimize cache pressure (keep dentry/inode cache around, reduce reclaim storms)
+        sudo sysctl -w vm.vfs_cache_pressure=50
+        echo "=== Memory after (RAM + 24GB swap) ==="
         free -h
+        echo "=== swap summary ==="
+        swapon --show
 
     - name: Prepare Build Environment
       run: |
@@ -51,13 +81,17 @@ jobs:
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
 
-    - name: Initialize TWRP Manifest
+    - name: Initialize TWRP Manifest (repo sync)
       run: |
+        # Use -j2 to avoid git gc memory storms; -j4 can cause memory contention
         cd /tmp
         mkdir twrp
         cd twrp
-        repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp -b twrp-14.1 --depth=1
-        repo sync -j$(nproc --all) --force-sync
+        echo "=== mem before repo init ===" ; free -h
+        repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp -b twrp-12.1 --depth=1
+        echo "=== mem before repo sync ===" ; free -h
+        repo sync -j2 --force-sync
+        echo "=== mem after repo sync ===" ; free -h
 
     - name: Add Device Tree
       run: |
@@ -68,22 +102,130 @@ jobs:
             cp -r "$file" device/google/raven/
           fi
         done
+        ls -la device/google/raven/
 
-    - name: Build TWRP
+    - name: Build TWRP (vendor_boot = recovery carrier)
       run: |
         cd /tmp/twrp
+        ls -la device/google/
+        ls -la device/google/raven/
         source build/envsetup.sh
-        lunch twrp_raven-ap2a-eng
-        mka bootimage recoveryimage -j4
+        lunch twrp_raven-eng
 
-    - name: Upload Build Artifact
+        echo "=== mem before build (vendorbootimage target) ===" ; free -h
+
+        # Print memory stats every 15 seconds in background so runner never goes
+        # fully silent (prevents 10-min step-silence GitHub Actions heart-beat timeout
+        # during soong bootstrap phase which can be silent for 5+ min)
+        MEMLOG=$(mktemp)
+        (
+          while true; do
+            TS=$(date '+%H:%M:%S')
+            FREE_LINE=$(free -h | awk '/^Mem:/ {print "RAM:" $3 "/" $2}')
+            SWAP_LINE=$(free -h | awk '/^Swap:/ {print "SWAP:" $3 "/" $2}')
+            DF_LINE=$(df -h / | awk '/\// {print "DISK:" $3 "/" $2 " (" $5 ")"}')
+            LOAD_LINE=$(cat /proc/loadavg | awk '{print "LOAD:" $1 "," $2 "," $3}')
+            echo "[status@$TS] ${FREE_LINE} | ${SWAP_LINE} | ${DF_LINE} | ${LOAD_LINE}"
+            sleep 15
+          done
+        ) &
+        MEMLOG_PID=$!
+        disown
+        echo "Started mem/status loop PID=$MEMLOG_PID"
+
+        set +e
+        echo "=== Approach 1: mka vendorbootimage bootimage recoveryimage -j${MAX_JOBS} ==="
+        mka vendorbootimage bootimage recoveryimage -j${MAX_JOBS}
+        RC1=$?
+        echo "Approach 1 exit code: $RC1"
+
+        echo "=== Checking output after approach 1 ==="
+        ls -la out/target/product/raven/*.img 2>/dev/null || echo "No .img files yet"
+        free -h
+
+        echo "=== Approach 2: make vendorbootimage explicitly ==="
+        make vendorbootimage -j${MAX_JOBS} 2>&1 | tail -50
+        RC2=$?
+        echo "Approach 2 exit code: $RC2"
+        free -h
+
+        echo "=== Approach 3: build ALL image targets -j1 (verbose, safe for low mem) ==="
+        make bootimage recoveryimage vendorbootimage vendor_boot boot recovery -j1 2>&1 | tail -80
+        RC3=$?
+        echo "Approach 3 exit code: $RC3"
+        free -h
+
+        echo "=== Final output check ==="
+        ls -la out/target/product/raven/*.img 2>/dev/null || echo "Still no .img files"
+
+        set -e
+        if [ -f out/target/product/raven/vendor_boot.img ]; then
+          echo "SUCCESS: vendor_boot.img FOUND (PRIMARY TWRP recovery carrier for Pixel 6 Pro/gs101)"
+        elif [ -f out/target/product/raven/boot.img ] || [ -f out/target/product/raven/recovery.img ]; then
+          echo "SUCCESS: alternative image produced"
+          [ -f out/target/product/raven/boot.img ] && echo "  -> boot.img present"
+          [ -f out/target/product/raven/recovery.img ] && echo "  -> recovery.img present"
+        else
+          echo "ERROR: No image files produced. Dumping ninja target diagnostics..."
+          echo "--- vendorbootimage ninja commands ---"
+          ninja -f out/build-twrp_raven.ninja -t commands vendorbootimage 2>/dev/null | head -30 || echo "(unavailable)"
+          echo "--- vendor_boot ninja commands ---"
+          ninja -f out/build-twrp_raven.ninja -t commands vendor_boot 2>/dev/null | head -30 || echo "(unavailable)"
+          echo "--- bootimage ninja commands ---"
+          ninja -f out/build-twrp_raven.ninja -t commands bootimage 2>/dev/null | head -30 || echo "(unavailable)"
+          echo "--- recoveryimage ninja commands ---"
+          ninja -f out/build-twrp_raven.ninja -t commands recoveryimage 2>/dev/null | head -30 || echo "(unavailable)"
+          echo "--- ALL ninja targets matching vendor|boot|recovery ---"
+          ninja -f out/build-twrp_raven.ninja -t targets all 2>/dev/null | grep -iE 'vendor|boot|recovery' | head -40 || echo "(unavailable)"
+          echo "=== mem at failure ===" ; free -h
+          exit 1
+        fi
+
+        # Clean up background mem loop
+        kill $MEMLOG_PID 2>/dev/null || true
+
+    - name: Verify Build Output
+      run: |
+        cd /tmp/twrp
+        echo "=== Output directory listing ==="
+        ls -la out/target/product/raven/ 2>/dev/null || echo "ERROR: Product directory not found"
+        echo ""
+        echo "=== Image file sizes (critical: vendor_boot.img >20MB means TWRP is inside) ==="
+        for img in out/target/product/raven/*.img; do
+          if [ -f "$img" ]; then
+            ls -lh "$img"
+          fi
+        done 2>/dev/null
+        echo ""
+        echo "=== All image files anywhere under out/ ==="
+        find out/ -name "*.img" -type f 2>/dev/null | head -30 || echo "(none)"
+        echo ""
+        echo "=== Recovery ramdisk sbin search (verify recovery/twrp binaries) ==="
+        for rd in \
+          "out/target/product/raven/obj/PACKAGING/vendor_ramdisk_recovery_intermediates/vendor-ramdisk-by-name/vendor_ramdisk/recovery/root/sbin" \
+          "out/target/product/raven/obj/PACKAGING/vendor_ramdisk_recovery_intermediates/root/sbin" \
+          "out/target/product/raven/recovery/root/sbin" \
+          "out/target/product/raven/obj/PACKAGING/recovery_intermediates/RECOVERY_ROOT/sbin"; do
+          if [ -d "$rd" ]; then
+            echo "--- Found sbin: $rd ---"
+            ls -la "$rd" | head -20
+            [ -f "$rd/recovery" ] && echo "  --> RECOVERY BINARY PRESENT"
+            [ -f "$rd/twrp" ] && echo "  --> TWRP BINARY PRESENT"
+          fi
+        done
+
+    - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: twrp-raven
+        name: twrp-raven-vendor-boot
         path: |
+          /tmp/twrp/out/target/product/raven/vendor_boot.img
           /tmp/twrp/out/target/product/raven/boot.img
           /tmp/twrp/out/target/product/raven/recovery.img
+          /tmp/twrp/out/target/product/raven/vendor_dlkm.img
+          /tmp/twrp/out/target/product/raven/dtbo.img
+          /tmp/twrp/out/target/product/raven/vbmeta.img
           /tmp/twrp/out/target/product/raven/*.img
-        if-no-files-found: warn
+        if-no-files-found: error
         compression-level: 6
         retention-days: 30
