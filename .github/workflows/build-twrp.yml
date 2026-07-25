@@ -14,12 +14,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 120
     permissions:
       contents: write
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Add swap space
+      run: |
+        sudo fallocate -l 16G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        free -h
 
     - name: Prepare Build Environment
       run: |
@@ -43,67 +52,18 @@ jobs:
       run: |
         cd /tmp/twrp
         mkdir -p device/google/raven
-        # Copy all files except .git, log, .gitignore
         for file in $GITHUB_WORKSPACE/*; do
           if [ "$(basename "$file")" != ".git" ] && [ "$(basename "$file")" != "log" ] && [ "$(basename "$file")" != ".gitignore" ]; then
             cp -r "$file" device/google/raven/
           fi
         done
-        ls -la device/google/raven/
 
     - name: Build TWRP
       run: |
         cd /tmp/twrp
-        ls -la device/google/
-        ls -la device/google/raven/
         source build/envsetup.sh
         lunch twrp_raven-ap2a-eng
-
-        echo "=== Attempting build approach 1: mka bootimage recoveryimage ==="
-        set +e
-        mka bootimage recoveryimage -j$(nproc --all)
-        RC1=$?
-        echo "Approach 1 exit code: $RC1"
-
-        echo "=== Checking output after approach 1 ==="
-        ls -la out/target/product/raven/*.img 2>/dev/null || echo "No .img files yet"
-
-        echo "=== Attempting build approach 2: make recoveryimage (no parallelism for debug) ==="
-        make recoveryimage -j1 2>&1 | tail -50
-        RC2=$?
-        echo "Approach 2 exit code: $RC2"
-
-        echo "=== Attempting build approach 3: make bootimage ==="
-        make bootimage -j$(nproc --all) 2>&1 | tail -50
-        RC3=$?
-        echo "Approach 3 exit code: $RC3"
-
-        echo "=== Final output check ==="
-        ls -la out/target/product/raven/*.img 2>/dev/null || echo "Still no .img files"
-
-        set -e
-        if [ -f out/target/product/raven/boot.img ] || [ -f out/target/product/raven/recovery.img ]; then
-          echo "SUCCESS: At least one image file was produced!"
-        else
-          echo "WARNING: No image files produced. Dumping diagnostic info..."
-          echo "=== ninja targets for bootimage ==="
-          ninja -f out/build-twrp_raven.ninja -t commands bootimage 2>/dev/null | head -30 || echo "Could not dump ninja commands for bootimage"
-          echo "=== ninja targets for recoveryimage ==="
-          ninja -f out/build-twrp_raven.ninja -t commands recoveryimage 2>/dev/null | head -30 || echo "Could not dump ninja commands for recoveryimage"
-          echo "=== All ninja targets containing 'boot' ==="
-          ninja -f out/build-twrp_raven.ninja -t targets all 2>/dev/null | grep -i boot | head -20 || echo "No boot-related targets found"
-          echo "=== All ninja targets containing 'recovery' ==="
-          ninja -f out/build-twrp_raven.ninja -t targets all 2>/dev/null | grep -i recovery | head -20 || echo "No recovery-related targets found"
-        fi
-
-    - name: Verify Build Output
-      run: |
-        cd /tmp/twrp
-        echo "=== Output directory full listing ==="
-        ls -laR out/target/product/raven/ 2>/dev/null || echo "Product directory not found"
-        echo ""
-        echo "=== All image files in entire out/ tree ==="
-        find out/ -name "*.img" -type f 2>/dev/null | head -30 || echo "No image files found anywhere in out/"
+        mka bootimage recoveryimage -j4
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
@@ -112,9 +72,7 @@ jobs:
         path: |
           /tmp/twrp/out/target/product/raven/boot.img
           /tmp/twrp/out/target/product/raven/recovery.img
-          /tmp/twrp/out/target/product/raven/vendor_boot.img
-          /tmp/twrp/out/target/product/raven/dtbo.img
           /tmp/twrp/out/target/product/raven/*.img
-        if-no-files-found: error
+        if-no-files-found: warn
         compression-level: 6
         retention-days: 30
