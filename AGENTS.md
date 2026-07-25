@@ -19,7 +19,7 @@ Then build:
 
 ```bash
 source build/envsetup.sh
-lunch twrp_raven-ap2a-eng
+lunch twrp_raven-eng
 mka bootimage recoveryimage -j$(nproc --all)
 ```
 

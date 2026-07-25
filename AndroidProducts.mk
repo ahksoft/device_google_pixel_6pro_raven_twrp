@@ -9,6 +9,6 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/twrp_raven.mk
 
 COMMON_LUNCH_CHOICES := \
-    twrp_raven-ap2a-user \
-    twrp_raven-ap2a-userdebug \
-    twrp_raven-ap2a-eng
+    twrp_raven-user \
+    twrp_raven-userdebug \
+    twrp_raven-eng
