@@ -7,6 +7,6 @@
 # Lunch combos are registered via COMMON_LUNCH_CHOICES in AndroidProducts.mk
 # Fallback: directly register in LUNCH_MENU_CHOICES in case the build system
 # doesn't auto-scan AndroidProducts.mk
-LUNCH_MENU_CHOICES+=("twrp_raven-eng")
-LUNCH_MENU_CHOICES+=("twrp_raven-user")
-LUNCH_MENU_CHOICES+=("twrp_raven-userdebug")
+LUNCH_MENU_CHOICES+=("twrp_raven-ap2a-eng")
+LUNCH_MENU_CHOICES+=("twrp_raven-ap2a-user")
+LUNCH_MENU_CHOICES+=("twrp_raven-ap2a-userdebug")

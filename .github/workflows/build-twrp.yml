@@ -57,7 +57,7 @@ jobs:
         ls -la device/google/
         ls -la device/google/raven/
         source build/envsetup.sh
-        lunch twrp_raven-eng
+        lunch twrp_raven-ap2a-eng
 
         echo "=== Attempting build approach 1: mka bootimage recoveryimage ==="
         set +e
